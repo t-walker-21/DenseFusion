@@ -26,12 +26,14 @@ from lib.network import PoseNet, PoseRefineNet
 from lib.loss import Loss
 from lib.loss_refiner import Loss_refine
 from lib.utils import setup_logger
+import trimesh
+import pyrender
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default = 'ycb', help='ycb or linemod')
 parser.add_argument('--dataset_root', type=str, default = '', help='dataset root dir (''YCB_Video_Dataset'' or ''Linemod_preprocessed'')')
 parser.add_argument('--batch_size', type=int, default = 8, help='batch size')
-parser.add_argument('--workers', type=int, default = 10, help='number of data loading workers')
+parser.add_argument('--workers', type=int, default = 0, help='number of data loading workers')
 parser.add_argument('--lr', default=0.0001, help='learning rate')
 parser.add_argument('--lr_rate', default=0.3, help='learning rate decay rate')
 parser.add_argument('--w', default=0.015, help='learning rate')
@@ -40,12 +42,77 @@ parser.add_argument('--decay_margin', default=0.016, help='margin to decay lr & 
 parser.add_argument('--refine_margin', default=0.013, help='margin to start the training of iterative refinement')
 parser.add_argument('--noise_trans', default=0.03, help='range of the random noise of translation added to the training data')
 parser.add_argument('--iteration', type=int, default = 2, help='number of refinement iterations')
-parser.add_argument('--nepoch', type=int, default=500, help='max number of epochs to train')
+parser.add_argument('--nepoch', type=int, default=525, help='max number of epochs to train')
 parser.add_argument('--resume_posenet', type=str, default = '',  help='resume PoseNet model')
 parser.add_argument('--resume_refinenet', type=str, default = '',  help='resume PoseRefineNet model')
 parser.add_argument('--start_epoch', type=int, default = 1, help='which epoch to start')
 opt = parser.parse_args()
 
+
+def init_models():
+    """
+
+    Create a list of models for visualization
+    """
+
+    pass
+
+
+def visualize_prediction(target_r, target_t, pred_r, pred_t, model_id):
+    """
+
+    Function to visualize prediction of object pose
+    """
+
+	#rotation = np.eye(3)
+
+	# Get random translation
+    translation = np.random.uniform(-0.07, 0.07, 3)
+    translation[2] += 1
+    translation[2] *= -1
+
+    # Build transformation matrix
+    mat = np.eye(4)
+    mat[:3, :3] = rotation
+    mat[:3, 3] = translation
+
+    # Create light object
+    light = pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=np.random.normal(10, 5))
+
+    # Create a scene
+    scene = pyrender.Scene()
+
+    # Create camera node object
+    nc = pyrender.Node(camera=camera, matrix=np.eye(4))
+
+    # Create object node object
+    no = pyrender.Node(mesh=model, matrix=mat)
+
+    # Create light node object
+    nl = pyrender.Node(light=light, matrix=np.eye(4))
+
+    # Add camera to scene
+    scene.add_node(nc)
+
+    # Add object to scene
+    scene.add_node(no, parent_node=nc)
+
+    # Add light to scene
+    scene.add_node(nl, parent_node=nc)
+
+    # Create object renderer
+    render = pyrender.OffscreenRenderer(image_shape[0], image_shape[1])
+
+    # Render images
+    color, depth = render.render(scene)
+
+    # Convert color
+    color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
+
+    if show_image:
+        # Show image
+        cv2.imshow("image", color)
+        cv2.waitKey(0)
 
 def main():
     opt.manualSeed = random.randint(1, 10000)
@@ -129,7 +196,7 @@ def main():
 
         for rep in range(opt.repeat_epoch):
             for i, data in enumerate(dataloader, 0):
-                points, choose, img, target, model_points, idx = data
+                points, choose, img, target, model_points, idx, target_r, target_t = data
                 points, choose, img, target, model_points, idx = Variable(points).cuda(), \
                                                                  Variable(choose).cuda(), \
                                                                  Variable(img).cuda(), \
@@ -139,6 +206,10 @@ def main():
                 pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx)
                 loss, dis, new_points, new_target = criterion(pred_r, pred_t, pred_c, target, model_points, idx, points, opt.w, opt.refine_start)
                 
+                #print (target_r)
+                print (pred_r.shape)
+                # visualize_prediction()
+
                 if opt.refine_start:
                     for ite in range(0, opt.iteration):
                         pred_r, pred_t = refiner(new_points, emb, idx)
@@ -173,7 +244,7 @@ def main():
         refiner.eval()
 
         for j, data in enumerate(testdataloader, 0):
-            points, choose, img, target, model_points, idx = data
+            points, choose, img, target, model_points, idx, target_r, target_t = data
             points, choose, img, target, model_points, idx = Variable(points).cuda(), \
                                                              Variable(choose).cuda(), \
                                                              Variable(img).cuda(), \
