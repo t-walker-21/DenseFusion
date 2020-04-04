@@ -14,7 +14,7 @@ import torch.optim as optim
 import torch.nn as nn
 from torch.backends import cudnn
 
-from data_controller import SegDataset
+from data_controller_mustard import SegDataset
 from loss import Loss
 from segnet import SegNet as segnet
 import sys
@@ -23,9 +23,9 @@ from lib.utils import setup_logger
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_root', default='/home/data1/jeremy/YCB_Video_Dataset', help="dataset root dir (''YCB_Video Dataset'')")
-parser.add_argument('--batch_size', default=3, help="batch size")
+parser.add_argument('--batch_size', default=1, help="batch size")
 parser.add_argument('--n_epochs', default=600, help="epochs to train")
-parser.add_argument('--workers', type=int, default=10, help='number of data loading workers')
+parser.add_argument('--workers', type=int, default=0, help='number of data loading workers')
 parser.add_argument('--lr', default=0.0001, help="learning rate")
 parser.add_argument('--logs_path', default='logs/', help="path to save logs")
 parser.add_argument('--model_save_path', default='trained_models/', help="path to save models")
@@ -38,15 +38,16 @@ if __name__ == '__main__':
     random.seed(opt.manualSeed)
     torch.manual_seed(opt.manualSeed)
 
-    dataset = SegDataset(opt.dataset_root, '../datasets/ycb/dataset_config/train_data_list.txt', True, 5000)
+    dataset = SegDataset(opt.dataset_root, '/home/tevon/gtri/home/twalker81/mustard/data_yaml/data/200/test.txt', True, 500)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=int(opt.workers))
+    
     test_dataset = SegDataset(opt.dataset_root, '../datasets/ycb/dataset_config/test_data_list.txt', False, 1000)
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=int(opt.workers))
 
     print(len(dataset), len(test_dataset))
 
-    model = segnet()
-    model = model.cuda()
+    model = segnet(label_nbr=1)
+    #model = model.cuda()
 
     if opt.resume_model != '':
         checkpoint = torch.load('{0}/{1}'.format(opt.model_save_path, opt.resume_model))
@@ -68,7 +69,7 @@ if __name__ == '__main__':
 
         for i, data in enumerate(dataloader, 0):
             rgb, target = data
-            rgb, target = Variable(rgb).cuda(), Variable(target).cuda()
+            #rgb, target = Variable(rgb).cuda(), Variable(target).cuda()
             semantic = model(rgb)
             optimizer.zero_grad()
             semantic_loss = criterion(semantic, target)
