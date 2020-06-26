@@ -110,7 +110,7 @@ def gather_files(path, object_name):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--obj_name', type=str, required=True, help='object name of interest')
+parser.add_argument('--obj_name', type=str, required=False, help='object name of interest')
 parser.add_argument('--NOCS_path', type=str, default='/media/tevon/b0926983-e0a6-464b-954c-71b0676b885c/tevonwalker/Documents/NOCS/real_train', help='path for NOCS files')
 
 opt = parser.parse_args()
