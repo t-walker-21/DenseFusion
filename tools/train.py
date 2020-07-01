@@ -22,6 +22,7 @@ import torchvision.utils as vutils
 from torch.autograd import Variable
 from datasets.ycb.dataset import PoseDataset as PoseDataset_ycb
 from datasets.linemod.dataset import PoseDataset as PoseDataset_linemod
+from datasets.nocs.dataset import PoseDataset as PoseDataset_nocs
 from lib.network import PoseNet, PoseRefineNet
 from lib.loss import Loss
 from lib.loss_refiner import Loss_refine
@@ -47,15 +48,6 @@ parser.add_argument('--resume_posenet', type=str, default = '',  help='resume Po
 parser.add_argument('--resume_refinenet', type=str, default = '',  help='resume PoseRefineNet model')
 parser.add_argument('--start_epoch', type=int, default = 1, help='which epoch to start')
 opt = parser.parse_args()
-
-
-def init_models():
-    """
-
-    Create a list of models for visualization
-    """
-
-    pass
 
 
 def visualize_prediction(target_r, target_t, pred_r, pred_t, model_id):
@@ -131,6 +123,14 @@ def main():
         opt.outf = 'trained_models/linemod'
         opt.log_dir = 'experiments/logs/linemod'
         opt.repeat_epoch = 20
+
+    elif opt.dataset == 'nocs':
+        opt.num_objects = 1
+        opt.num_points = 500
+        opt.outf = 'trained_models/nocs'
+        opt.log_dir = 'experiments/logs/nocs'
+        opt.repeat_epoch = 20
+
     else:
         print('Unknown dataset')
         return
@@ -160,11 +160,16 @@ def main():
         dataset = PoseDataset_ycb('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
     elif opt.dataset == 'linemod':
         dataset = PoseDataset_linemod('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
+    elif opt.dataset == 'nocs':
+        dataset = PoseDataset_nocs('train', opt.num_points, True, opt.dataset_root, False, opt.refine_start)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=opt.workers)
     if opt.dataset == 'ycb':
         test_dataset = PoseDataset_ycb('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
     elif opt.dataset == 'linemod':
         test_dataset = PoseDataset_linemod('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
+    elif opt.dataset == 'nocs':
+        test_dataset = PoseDataset_nocs('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
+    
     testdataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=opt.workers)
     
     opt.sym_list = dataset.get_sym_list()
@@ -205,9 +210,9 @@ def main():
                                                                  Variable(idx).cuda()
                 pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx)
                 loss, dis, new_points, new_target = criterion(pred_r, pred_t, pred_c, target, model_points, idx, points, opt.w, opt.refine_start)
-                
+
                 #print (target_r)
-                print (pred_r.shape)
+                #print (pred_r.shape)
                 # visualize_prediction()
 
                 if opt.refine_start:
@@ -294,6 +299,8 @@ def main():
                 test_dataset = PoseDataset_ycb('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
             elif opt.dataset == 'linemod':
                 test_dataset = PoseDataset_linemod('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
+            elif opt.dataset == 'nocs':
+                test_dataset = PoseDataset_nocs('train', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
             testdataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=opt.workers)
             
             opt.sym_list = dataset.get_sym_list()
